@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-bg:       #0a0a0a;
+  --color-surface:  #111111;
+  --color-surface2: #1a1a1a;
+  --color-border:   #2a2a2a;
+  --color-coral:    #ff4b2b;
+  --color-coral2:   #ff6b6b;
+  --color-green:    #22c55e;
+  --color-gold:     #f59e0b;
+  --color-text:     #f5f5f5;
+  --color-muted:    #9a9a9a;
+  --font-sans: 'Inter', sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: #0a0a0a;
+  color: #f5f5f5;
+  font-family: 'Inter', sans-serif;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: #111111; }
+::-webkit-scrollbar-thumb { background: #ff4b2b; border-radius: 2px; }
+
+/* ── Necterlabs Design Utilities ── */
+.glass {
+  background: rgba(255,255,255,0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.scrollbar-hide::-webkit-scrollbar { display: none; }
+.scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Section title with coral lines: ──── TITLE ──── */
+.section-title {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #f5f5f5;
+  text-transform: uppercase;
+}
+.section-title::before,
+.section-title::after {
+  content: '';
+  flex: 1;
+  height: 1.5px;
+  background: #ff4b2b;
+  max-width: 80px;
+}
+
+/* Flat-off badge (green pill) */
+.flat-off-badge {
+  background: #22c55e;
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Star rating badge (gold pill) */
+.star-badge {
+  background: rgba(0,0,0,0.75);
+  color: #f59e0b;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+/* Card overlay (category name + location on image) */
+.card-overlay-category {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: white;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+.card-overlay-location {
+  font-size: 0.65rem;
+  color: rgba(255,255,255,0.8);
+  margin-top: 1px;
+}
+
+/* Search bar rotating words animation */
+@keyframes rotate-word {
+  0%   { opacity: 0; }
+  8%   { opacity: 1; }
+  28%  { opacity: 1; }
+  36%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+.search-word {
+  position: absolute;
+  color: #ff4b2b;
+  font-weight: 500;
+  opacity: 0;
+  animation: rotate-word 6s linear infinite;
+  animation-fill-mode: both;
+}
+.search-word:nth-child(1) { animation-delay: 0s; }
+.search-word:nth-child(2) { animation-delay: 2s; }
+.search-word:nth-child(3) { animation-delay: 4s; }
