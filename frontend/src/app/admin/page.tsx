@@ -88,7 +88,8 @@ function ListingsTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Listing | null>(null);
   const [form, setForm] = useState(defaultForm());
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [stats, setStats] = useState({ total: 0, active: 0, featured: 0 });
 
@@ -105,10 +106,12 @@ function ListingsTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const openCreate = () => { setEditing(null); setForm(defaultForm()); setImageFile(null); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(defaultForm()); setImageFiles([]); setImagePreviews([]); setModalOpen(true); };
   const openEdit = (l: Listing) => {
     setEditing(l);
     setForm({ title: l.title, location: l.location, category: l.category, description: l.description, shortDesc: l.shortDesc || '', price: String(l.price), originalPrice: l.originalPrice ? String(l.originalPrice) : '', discountPct: String(l.discountPct), duration: l.duration || '', groupSize: l.groupSize || '', rating: String(l.rating), isFeatured: l.isFeatured, isTrending: l.isTrending });
+    setImageFiles([]);
+    setImagePreviews([]);
     setModalOpen(true);
   };
 
@@ -116,12 +119,26 @@ function ListingsTab() {
     if (!form.title || !form.location || !form.price) return;
     setSaving(true);
     try {
-      let coverImage = editing?.coverImage;
-      if (imageFile) {
-        const res = await api.uploadImage(imageFile);
-        coverImage = res.url;
+      // Upload all selected images to Cloudinary
+      const uploadedUrls: string[] = [];
+      for (const file of imageFiles) {
+        const res = await api.uploadImage(file);
+        uploadedUrls.push(res.url);
       }
-      const payload = { ...form, price: Number(form.price), originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined, discountPct: Number(form.discountPct), rating: Number(form.rating), ...(coverImage && { coverImage }) };
+      // First uploaded image = cover; rest = gallery
+      const coverImage = uploadedUrls[0] || editing?.coverImage || '';
+      const existingImages = Array.isArray(editing?.images) ? editing.images as string[] : [];
+      const images = uploadedUrls.length > 1 ? uploadedUrls.slice(1) : existingImages;
+
+      const payload = {
+        ...form,
+        price: Number(form.price),
+        originalPrice: form.originalPrice ? Number(form.originalPrice) : undefined,
+        discountPct: Number(form.discountPct),
+        rating: Number(form.rating),
+        ...(coverImage && { coverImage }),
+        images,
+      };
       if (editing) await api.updateListing(editing.id, payload);
       else await api.createListing(payload);
       setModalOpen(false);
@@ -233,10 +250,47 @@ function ListingsTab() {
               className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#ff6b6b] resize-none" />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs text-[#9a9a9a] block mb-2">Cover Image</label>
-            <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files?.[0] || null)}
-              className="text-sm text-[#9a9a9a] file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:bg-[#ff6b6b] file:text-white file:text-sm file:font-medium cursor-pointer" />
-            {editing?.coverImage && <p className="text-xs text-[#9a9a9a] mt-1">Current: {editing.coverImage}</p>}
+            <label className="text-xs text-[#9a9a9a] block mb-2">
+              Photos — select up to 5 (first = cover photo, rest = gallery)
+            </label>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={e => {
+                const files = Array.from(e.target.files || []).slice(0, 5);
+                setImageFiles(files);
+                setImagePreviews(files.map(f => URL.createObjectURL(f)));
+              }}
+              className="text-sm text-[#9a9a9a] file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:bg-[#ff6b6b] file:text-white file:text-sm file:font-medium cursor-pointer"
+            />
+            {/* New photo previews */}
+            {imagePreviews.length > 0 && (
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {imagePreviews.map((src, i) => (
+                  <div key={i} className="relative">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt={`preview ${i}`} className="w-16 h-16 object-cover rounded-lg border border-[#2a2a2a]" />
+                    {i === 0 && (
+                      <span className="absolute -top-1 -right-1 bg-[#ff6b6b] text-white text-[8px] px-1 rounded">COVER</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {/* Existing cover image */}
+            {!imagePreviews.length && editing?.coverImage && (
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <div className="relative">
+                  <img src={editing.coverImage} alt="current cover" className="w-16 h-16 object-cover rounded-lg border border-[#2a2a2a]" />
+                  <span className="absolute -top-1 -right-1 bg-[#9a9a9a] text-white text-[8px] px-1 rounded">COVER</span>
+                </div>
+                {Array.isArray(editing.images) && (editing.images as string[]).map((img, i) => (
+                  <img key={i} src={img} alt={`gallery ${i}`} className="w-16 h-16 object-cover rounded-lg border border-[#2a2a2a]" />
+                ))}
+              </div>
+            )}
           </div>
           <div className="sm:col-span-2 flex flex-wrap gap-5">
             {[['isFeatured', 'Featured'], ['isTrending', 'Trending']] .map(([key, label]) => (

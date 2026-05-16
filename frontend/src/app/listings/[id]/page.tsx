@@ -89,32 +89,58 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      {/* ── Image Grid ── */}
-      <div className="max-w-screen-xl mx-auto px-4 sm:px-6 mt-4">
-        <div className="grid gap-2" style={{ gridTemplateColumns: images.length > 0 ? '2fr 1fr' : '1fr' }}>
-          {/* Main image */}
-          <div className="relative rounded-l-2xl overflow-hidden" style={{ height: '280px' }}>
-            <Image src={coverSrc} alt={listing.title} fill className="object-cover" unoptimized={!listing.coverImage} />
+      {/* ── Image Grid (burraa.com style: 1 large left + 2 small stacked right) ── */}
+      <div className="max-w-screen-xl mx-auto px-0 sm:px-6 mt-4">
+        <div
+          className="grid gap-1"
+          style={{
+            gridTemplateColumns: images.length > 0 ? '2fr 1fr' : '1fr',
+            height: '280px',
+          }}
+        >
+          {/* Main cover image */}
+          <div className={`relative overflow-hidden ${images.length > 0 ? 'rounded-l-none sm:rounded-l-2xl' : 'rounded-none sm:rounded-2xl'}`}>
+            <Image
+              src={coverSrc}
+              alt={listing.title}
+              fill
+              className="object-cover"
+              unoptimized={!listing.coverImage || !coverSrc.startsWith('http')}
+              priority
+            />
           </div>
-          {/* Side images */}
+
+          {/* Side images (only if gallery exists) */}
           {images.length > 0 && (
-            <div className="flex flex-col gap-2">
-              {[0, 1].map((i) => (
-                <div key={i} className="relative flex-1 overflow-hidden rounded-r-2xl last:rounded-br-2xl first:rounded-tr-2xl" style={{ height: '136px' }}>
-                  {i === 0 && images[0] ? (
-                    <Image src={images[0]} alt="gallery" fill className="object-cover" unoptimized />
-                  ) : (
-                    <Image src={coverSrc} alt="gallery" fill className="object-cover brightness-75" unoptimized={!listing.coverImage} />
-                  )}
-                  {i === 1 && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <span className="text-white text-xs font-semibold bg-black/60 px-3 py-1.5 rounded-full">
-                        Show {images.length + 2} images
-                      </span>
-                    </div>
-                  )}
+            <div className="flex flex-col gap-1">
+              {/* Top small image */}
+              <div className="relative flex-1 overflow-hidden rounded-tr-none sm:rounded-tr-2xl">
+                <Image
+                  src={images[0]}
+                  alt="gallery 1"
+                  fill
+                  className="object-cover"
+                  unoptimized
+                />
+              </div>
+              {/* Bottom small image with photo count overlay */}
+              <div className="relative flex-1 overflow-hidden rounded-br-none sm:rounded-br-2xl">
+                <Image
+                  src={images[1] || coverSrc}
+                  alt="gallery 2"
+                  fill
+                  className="object-cover brightness-75"
+                  unoptimized
+                />
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <span className="flex items-center gap-1.5 text-white text-xs font-semibold bg-black/60 px-3 py-1.5 rounded-full">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="white">
+                      <path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/>
+                    </svg>
+                    {images.length + 1} Photos
+                  </span>
                 </div>
-              ))}
+              </div>
             </div>
           )}
         </div>
