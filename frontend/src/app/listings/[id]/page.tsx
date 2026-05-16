@@ -248,19 +248,11 @@ export default async function ListingDetailPage({ params }: { params: Promise<{ 
             href={`https://maps.google.com/?q=${encodeURIComponent(listing.location + ' Goa India')}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-[#2a2a2a]"
+            className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 border border-[#2a2a2a] bg-[#1a1a1a] flex items-center justify-center"
           >
-            <img
-              src={`https://maps.googleapis.com/maps/api/staticmap?center=${encodeURIComponent(listing.location + ' Goa')}&zoom=13&size=100x100&maptype=roadmap&key=`}
-              alt="map"
-              className="w-full h-full object-cover"
-              onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-            />
-            <div className="w-full h-full bg-[#1a1a1a] flex items-center justify-center">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#ff4b2b">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-              </svg>
-            </div>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="#ff4b2b">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            </svg>
           </a>
         </div>
       </div>
