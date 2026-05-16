@@ -1,4 +1,4 @@
-import { api, type Listing } from '@/lib/api';
+import { getDb } from '@/lib/firebase-admin';
 import ListingCard from './components/listings/ListingCard';
 import CategoryBanner from './components/home/CategoryBanner';
 import PromoBanner from './components/home/PromoBanner';
@@ -7,14 +7,19 @@ import WhyBurraa from './components/home/WhyBurraa';
 
 async function getData() {
   try {
-    const [yachts, adventures, trending, featured] = await Promise.all([
-      api.getListings({ category: 'Yachts' }),
-      api.getListings({ category: 'Adventures' }),
-      api.getListings({ trending: 'true' }),
-      api.getListings({ featured: 'true' }),
-    ]);
-    return { yachts, adventures, trending, featured };
-  } catch {
+    const db   = getDb();
+    const snap = await db.collection('listings').where('isActive', '==', true).get();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const all: any[] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    return {
+      yachts:     all.filter(l => l.category === 'Yachts'),
+      adventures: all.filter(l => l.category === 'Adventures'),
+      trending:   all.filter(l => l.isTrending),
+      featured:   all.filter(l => l.isFeatured),
+    };
+  } catch (e) {
+    console.error('Firestore fetch error:', e);
     return { yachts: [], adventures: [], trending: [], featured: [] };
   }
 }
@@ -33,28 +38,32 @@ export default async function HomePage() {
       {/* Yachts Section */}
       {yachts.length > 0 && (
         <SectionRow title="NECTERLABS RECOMMENDED YACHTS" viewAllHref="/listings?category=Yachts">
-          {yachts.map((l: Listing) => <ListingCard key={l.id} listing={l} compact />)}
+          {yachts.map(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(l: any) => <ListingCard key={l.id} listing={l} compact />)}
         </SectionRow>
       )}
 
       {/* Adventures Section */}
       {adventures.length > 0 && (
         <SectionRow title="MUST DO ADVENTURES IN GOA" viewAllHref="/listings?category=Adventures">
-          {adventures.map((l: Listing) => <ListingCard key={l.id} listing={l} compact />)}
+          {adventures.map(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(l: any) => <ListingCard key={l.id} listing={l} compact />)}
         </SectionRow>
       )}
 
       {/* Trending Section */}
       {trending.length > 0 && (
         <SectionRow title="TRENDING THIS WEEK" viewAllHref="/listings?trending=true">
-          {trending.map((l: Listing) => <ListingCard key={l.id} listing={l} compact />)}
+          {trending.map(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(l: any) => <ListingCard key={l.id} listing={l} compact />)}
         </SectionRow>
       )}
 
       {/* Featured Section */}
       {featured.length > 0 && (
         <SectionRow title="PREMIUM WATER SPORTS IN GOA" viewAllHref="/listings?featured=true">
-          {featured.map((l: Listing) => <ListingCard key={l.id} listing={l} compact />)}
+          {featured.map(// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(l: any) => <ListingCard key={l.id} listing={l} compact />)}
         </SectionRow>
       )}
 

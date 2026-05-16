@@ -1,7 +1,8 @@
 import { notFound } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import { getDb } from '@/lib/firebase-admin';
+import { FieldValue } from 'firebase-admin/firestore';
 import DetailActions from './DetailActions';
 
 const FALLBACK = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1200&q=80';
@@ -25,13 +26,15 @@ const QUICK_ANSWERS = [
 
 export default async function ListingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  let listing;
-  try {
-    listing = await api.getListing(id);
-  } catch {
-    notFound();
-  }
-  if (!listing || !listing.isActive) notFound();
+
+  // Query Firestore directly — avoids relative-URL fetch issues in server components
+  const db  = getDb();
+  const doc = await db.collection('listings').doc(id).get().catch(() => null);
+  if (!doc || !doc.exists || !doc.data()?.isActive) notFound();
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const listing: any = { id: doc.id, ...doc.data() };
+  doc.ref.update({ viewCount: FieldValue.increment(1) }).catch(() => {});
 
   // images can be a real array (Firestore) or JSON string (legacy)
   const images: string[] = (() => {
