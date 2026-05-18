@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { api, type Listing, type Inquiry } from '@/lib/api';
 import Modal from '../components/ui/Modal';
 import Button from '../components/ui/Button';
@@ -7,7 +7,11 @@ import Spinner from '../components/ui/Spinner';
 
 const ADMIN_KEY = process.env.NEXT_PUBLIC_ADMIN_KEY || 'burraa-admin-secret-2024';
 
-type Tab = 'listings' | 'inquiries';
+type Tab = 'listings' | 'inquiries' | 'settings';
+
+type ImageItem =
+  | { type: 'existing'; url: string }
+  | { type: 'new'; file: File; previewUrl: string };
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -66,7 +70,7 @@ export default function AdminPage() {
       </div>
 
       <div className="flex gap-3 mb-8">
-        {(['listings', 'inquiries'] as Tab[]).map(t => (
+        {(['listings', 'inquiries', 'settings'] as Tab[]).map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -77,7 +81,9 @@ export default function AdminPage() {
         ))}
       </div>
 
-      {tab === 'listings' ? <ListingsTab /> : <InquiriesTab />}
+      {tab === 'listings' && <ListingsTab />}
+      {tab === 'inquiries' && <InquiriesTab />}
+      {tab === 'settings' && <SettingsTab />}
     </div>
   );
 }
@@ -88,9 +94,9 @@ function ListingsTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Listing | null>(null);
   const [form, setForm] = useState(defaultForm());
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [allImages, setAllImages] = useState<ImageItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [stats, setStats] = useState({ total: 0, active: 0, featured: 0 });
 
   const load = useCallback(async () => {
@@ -106,12 +112,15 @@ function ListingsTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  const openCreate = () => { setEditing(null); setForm(defaultForm()); setImageFiles([]); setImagePreviews([]); setModalOpen(true); };
+  const openCreate = () => { setEditing(null); setForm(defaultForm()); setAllImages([]); setModalOpen(true); };
   const openEdit = (l: Listing) => {
     setEditing(l);
     setForm({ title: l.title, location: l.location, category: l.category, description: l.description, shortDesc: l.shortDesc || '', price: String(l.price), originalPrice: l.originalPrice ? String(l.originalPrice) : '', discountPct: String(l.discountPct), duration: l.duration || '', groupSize: l.groupSize || '', rating: String(l.rating), isFeatured: l.isFeatured, isTrending: l.isTrending });
-    setImageFiles([]);
-    setImagePreviews([]);
+    const existing: ImageItem[] = [
+      ...(l.coverImage ? [{ type: 'existing' as const, url: l.coverImage }] : []),
+      ...(Array.isArray(l.images) ? (l.images as string[]).map(url => ({ type: 'existing' as const, url })) : []),
+    ];
+    setAllImages(existing);
     setModalOpen(true);
   };
 
@@ -119,16 +128,20 @@ function ListingsTab() {
     if (!form.title || !form.location || !form.price) return;
     setSaving(true);
     try {
-      // Upload all selected images to Cloudinary
-      const uploadedUrls: string[] = [];
-      for (const file of imageFiles) {
-        const res = await api.uploadImage(file);
-        uploadedUrls.push(res.url);
+      // Upload only NEW images to Cloudinary
+      const uploadedMap = new Map<File, string>();
+      for (const img of allImages) {
+        if (img.type === 'new') {
+          const res = await api.uploadImage(img.file);
+          uploadedMap.set(img.file, res.url);
+        }
       }
-      // First uploaded image = cover; rest = gallery
-      const coverImage = uploadedUrls[0] || editing?.coverImage || '';
-      const existingImages = Array.isArray(editing?.images) ? editing.images as string[] : [];
-      const images = uploadedUrls.length > 1 ? uploadedUrls.slice(1) : existingImages;
+      // Resolve final URL list preserving order (existing kept, new replaced with Cloudinary URL)
+      const finalUrls = allImages.map(img =>
+        img.type === 'existing' ? img.url : uploadedMap.get(img.file)!
+      );
+      const coverImage = finalUrls[0] || '';
+      const images = finalUrls.slice(1);
 
       const payload = {
         ...form,
@@ -250,47 +263,61 @@ function ListingsTab() {
               className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#ff6b6b] resize-none" />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs text-[#9a9a9a] block mb-2">
-              Photos — select up to 5 (first = cover photo, rest = gallery)
-            </label>
+            <label className="text-xs text-[#9a9a9a] block mb-2">Photos <span className="text-[#3a3a3a]">— first = cover, up to 5 · hover to remove</span></label>
+
+            {/* Hidden file input — clears after each pick so same file can be re-added */}
             <input
+              ref={fileInputRef}
               type="file"
               accept="image/*"
               multiple
+              className="hidden"
               onChange={e => {
-                const files = Array.from(e.target.files || []).slice(0, 5);
-                setImageFiles(files);
-                setImagePreviews(files.map(f => URL.createObjectURL(f)));
+                const newFiles = Array.from(e.target.files || []);
+                const remaining = 5 - allImages.length;
+                const toAdd = newFiles.slice(0, remaining).map(file => ({
+                  type: 'new' as const,
+                  file,
+                  previewUrl: URL.createObjectURL(file),
+                }));
+                setAllImages(prev => [...prev, ...toAdd]);
+                if (fileInputRef.current) fileInputRef.current.value = '';
               }}
-              className="text-sm text-[#9a9a9a] file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:bg-[#ff6b6b] file:text-white file:text-sm file:font-medium cursor-pointer"
             />
-            {/* New photo previews */}
-            {imagePreviews.length > 0 && (
-              <div className="flex gap-2 mt-2 flex-wrap">
-                {imagePreviews.map((src, i) => (
-                  <div key={i} className="relative">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={src} alt={`preview ${i}`} className="w-16 h-16 object-cover rounded-lg border border-[#2a2a2a]" />
-                    {i === 0 && (
-                      <span className="absolute -top-1 -right-1 bg-[#ff6b6b] text-white text-[8px] px-1 rounded">COVER</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            {/* Existing cover image */}
-            {!imagePreviews.length && editing?.coverImage && (
-              <div className="flex gap-2 mt-2 flex-wrap">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <div className="relative">
-                  <img src={editing.coverImage} alt="current cover" className="w-16 h-16 object-cover rounded-lg border border-[#2a2a2a]" />
-                  <span className="absolute -top-1 -right-1 bg-[#9a9a9a] text-white text-[8px] px-1 rounded">COVER</span>
+
+            {/* Horizontal scrollable image strip */}
+            <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+              {allImages.map((img, i) => (
+                <div key={i} className="relative flex-shrink-0 group">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={img.type === 'existing' ? img.url : img.previewUrl}
+                    alt={`image ${i}`}
+                    className={`w-16 h-16 object-cover rounded-xl border ${img.type === 'new' ? 'border-[#ff6b6b]/50' : 'border-[#3a3a3a]'}`}
+                  />
+                  {i === 0 && (
+                    <span className="absolute -top-1 -right-1 bg-[#ff6b6b] text-white text-[8px] px-1.5 py-0.5 rounded-full font-bold">COVER</span>
+                  )}
+                  {/* Remove button — visible on hover */}
+                  <button
+                    type="button"
+                    onClick={() => setAllImages(prev => prev.filter((_, j) => j !== i))}
+                    className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-black/80 text-white text-[10px] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+                  >×</button>
                 </div>
-                {Array.isArray(editing.images) && (editing.images as string[]).map((img, i) => (
-                  <img key={i} src={img} alt={`gallery ${i}`} className="w-16 h-16 object-cover rounded-lg border border-[#2a2a2a]" />
-                ))}
-              </div>
-            )}
+              ))}
+
+              {/* + Add button — hidden when 5 images reached */}
+              {allImages.length < 5 && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex-shrink-0 w-16 h-16 rounded-xl border-2 border-dashed border-[#3a3a3a] hover:border-[#ff6b6b] flex items-center justify-center text-[#9a9a9a] hover:text-[#ff6b6b] transition-colors text-2xl font-light"
+                >
+                  +
+                </button>
+              )}
+            </div>
           </div>
           <div className="sm:col-span-2 flex flex-wrap gap-5">
             {[['isFeatured', 'Featured'], ['isTrending', 'Trending']] .map(([key, label]) => (
@@ -365,6 +392,86 @@ function InquiriesTab() {
         {inquiries.length === 0 && (
           <div className="text-center py-16 text-[#9a9a9a]">No inquiries yet.</div>
         )}
+      </div>
+    </div>
+  );
+}
+
+type HomeCfg = { showYachts: boolean; showAdventures: boolean; showTrending: boolean; showFeatured: boolean };
+
+function SettingsTab() {
+  const ADMIN_KEY = process.env.NEXT_PUBLIC_ADMIN_KEY || 'burraa-admin-secret-2024';
+  const [cfg, setCfg] = useState<HomeCfg>({ showYachts: true, showAdventures: true, showTrending: true, showFeatured: true });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(data => {
+        setCfg({
+          showYachts:     data.showYachts     ?? true,
+          showAdventures: data.showAdventures ?? true,
+          showTrending:   data.showTrending   ?? true,
+          showFeatured:   data.showFeatured   ?? true,
+        });
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggle = async (key: keyof HomeCfg) => {
+    const next = !cfg[key];
+    setSaving(key);
+    setCfg(prev => ({ ...prev, [key]: next }));
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-key': ADMIN_KEY },
+      body: JSON.stringify({ [key]: next }),
+    });
+    setSaving(null);
+  };
+
+  const SECTIONS: { key: keyof HomeCfg; label: string; desc: string }[] = [
+    { key: 'showYachts',     label: 'Yachts Section',     desc: 'NECTERLABS RECOMMENDED YACHTS row on home page' },
+    { key: 'showAdventures', label: 'Adventures Section', desc: 'MUST DO ADVENTURES IN GOA row on home page' },
+    { key: 'showTrending',   label: 'Trending Section',   desc: 'TRENDING THIS WEEK row on home page' },
+    { key: 'showFeatured',   label: 'Featured Section',   desc: 'PREMIUM WATER SPORTS IN GOA row on home page' },
+  ];
+
+  if (loading) return <div className="flex justify-center py-16"><Spinner size="lg" /></div>;
+
+  return (
+    <div>
+      <div className="mb-6">
+        <h2 className="font-bold text-lg">Home Page Sections</h2>
+        <p className="text-[#9a9a9a] text-sm mt-1">Toggle which sections appear on the home page. Changes take effect immediately on next page load.</p>
+      </div>
+
+      <div className="glass rounded-2xl overflow-hidden divide-y divide-[#2a2a2a]">
+        {SECTIONS.map(({ key, label, desc }) => (
+          <div key={key} className="flex items-center justify-between px-6 py-5 gap-4">
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">{label}</p>
+              <p className="text-xs text-[#9a9a9a] mt-0.5">{desc}</p>
+            </div>
+            <button
+              onClick={() => toggle(key)}
+              disabled={saving === key}
+              className={`relative flex-shrink-0 w-12 h-6 rounded-full transition-colors duration-200 ${cfg[key] ? 'bg-[#ff6b6b]' : 'bg-[#2a2a2a]'} ${saving === key ? 'opacity-50' : ''}`}
+              aria-label={`Toggle ${label}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${cfg[key] ? 'translate-x-6' : 'translate-x-0'}`}
+              />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 glass rounded-2xl px-6 py-5">
+        <p className="text-xs text-[#9a9a9a] leading-relaxed">
+          <span className="text-[#ff6b6b] font-semibold">Note:</span> The hero banner (top slider) always shows listings marked as <span className="text-white font-medium">Featured</span> in the Listings tab. Mark a listing as Featured to make it appear in the hero banner.
+        </p>
       </div>
     </div>
   );
