@@ -4,6 +4,8 @@ import HeroBanner, { type HeroSlide } from './components/home/HeroBanner';
 import SectionRow from './components/home/SectionRow';
 import WhyBurraa from './components/home/WhyBurraa';
 
+export const dynamic = 'force-dynamic';
+
 const ACCENTS = ['#f59e0b', '#22d3ee', '#a78bfa', '#34d399', '#f472b6'];
 
 async function getData() {
