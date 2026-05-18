@@ -263,7 +263,7 @@ function ListingsTab() {
               className="w-full bg-[#1a1a1a] border border-[#2a2a2a] rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-[#ff6b6b] resize-none" />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs text-[#9a9a9a] block mb-2">Photos <span className="text-[#3a3a3a]">— first = cover, up to 5 · hover to remove</span></label>
+            <label className="text-xs text-[#9a9a9a] block mb-2">Photos <span className="text-[#3a3a3a]">— first = cover, up to 10 · hover to remove</span></label>
 
             {/* Hidden file input — clears after each pick so same file can be re-added */}
             <input
@@ -274,7 +274,7 @@ function ListingsTab() {
               className="hidden"
               onChange={e => {
                 const newFiles = Array.from(e.target.files || []);
-                const remaining = 5 - allImages.length;
+                const remaining = 10 - allImages.length;
                 const toAdd = newFiles.slice(0, remaining).map(file => ({
                   type: 'new' as const,
                   file,
@@ -308,7 +308,7 @@ function ListingsTab() {
               ))}
 
               {/* + Add button — hidden when 5 images reached */}
-              {allImages.length < 5 && (
+              {allImages.length < 10 && (
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
